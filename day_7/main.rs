@@ -1,9 +1,11 @@
-use std::cmp::{max, Ordering};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::iter::zip;
 
-#[derive(Debug, Eq, PartialEq, PartialOrd)]
+#[derive(Debug, Eq)]
+
 struct HandInfo{
     hand: String,
     bid: i32,
@@ -11,11 +13,47 @@ struct HandInfo{
 impl Ord for HandInfo {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // todo
-        println!("{}", self.hand);
-        println!("{}", other.hand);
+        let map: HashMap<char, u32> = HashMap::from([
+            ('2', 2),
+            ('3', 3),
+            ('4', 4),
+            ('5', 5),
+            ('6', 6),
+            ('7', 7),
+            ('8', 8),
+            ('9', 9),
+            ('T', 10),
+            ('J', 11),
+            ('Q', 12),
+            ('K', 13),
+            ('A', 14),
+        ]);
+        for (first_char, second_char) in zip(self.hand.chars(), other.hand.chars()){
+            let first_numerical_rep = map.get(&first_char).unwrap();
+            let second_numerical_rep = map.get(&second_char).unwrap();
+            if first_numerical_rep < second_numerical_rep {
+                return std::cmp::Ordering::Less;
+            } else if first_numerical_rep > second_numerical_rep {
+                return std::cmp::Ordering::Greater;
+            }
+        }
+        println!("cmp called");
         std::cmp::Ordering::Equal
     }
 }
+
+impl PartialOrd for HandInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for HandInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.hand == other.hand
+    }
+}
+
 
 // ordered from least to strongest, allow it to be used a hash index
 #[derive(Hash, Debug, Eq, PartialEq)]
@@ -89,7 +127,7 @@ fn parse_file(filename: &str) -> Result<Vec<Vec<String>>, std::io::Error> {
 }
 
 fn main() {
-    let results = parse_file("input.txt");
+    let results = parse_file("inputs.txt");
     let mut hands_bucketed_by_hand_strength: HashMap<HandStrength, Vec<HandInfo>> = HashMap::new();
     if let Ok(words) = results {
         for line in words {
@@ -114,16 +152,17 @@ fn main() {
     let hand_strengths_from_lowest_to_highest = vec!{HandStrength::HighCard, HandStrength::OnePair,
                                                      HandStrength::TwoPair, HandStrength::ThreeOfAKind, HandStrength::FullHouse,
                                                      HandStrength::FourOfAKind, HandStrength::FiveOfAKind};
+    let mut final_answer = 0;
+    let mut current_rank  = 1;
     for one_hand_strength in hand_strengths_from_lowest_to_highest {
-        let all_hands_of_this_type = hands_bucketed_by_hand_strength.get_mut(&one_hand_strength);
-        if all_hands_of_this_type.is_some() {
-            // please tell me if I can avoid using this clone()
-            // I'm stuck here I dont know what to do to call sort on the vectors...
-            all_hands_of_this_type.clone().unwrap().sort();
-            println!("{:?}", all_hands_of_this_type);
+        let mut all_hands_of_this_type = hands_bucketed_by_hand_strength.get_mut(&one_hand_strength);
+        if let Some(ref mut all_hands) = all_hands_of_this_type {
+            all_hands.sort();
+            for one_hand in all_hands.iter() {
+                final_answer += one_hand.bid * current_rank;
+                current_rank += 1;
+            }
         }
     }
-    println!("Print statement so I pause the debugger here");
+    println!("Final score is {}", final_answer);
 }
-
-
